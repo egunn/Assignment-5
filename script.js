@@ -20,7 +20,7 @@ var projection = d3.geo.mercator() //set up a mercator projection function
 
 //*************change once scaling function is set up *****************************
     .center(bostonLngLat)  //change the projection center to Boston
-    .translate([width/2,height/2])     //Center the projection on the screen
+    .translate([width/2-70,height/2])     //Center the projection on the screen
     .scale(200000); //from documentation page - may need to change back to a simple multiple
 
 //set up a path generator function that uses the mercator projection function
@@ -66,11 +66,11 @@ function draw(neighborhoods, blocks){
 
     var test = map.append('g')
         .attr('class','block-groups')
-        .selectAll('.boundary')
+        .selectAll('.block-group')
         .data(blocks.features)
         .enter()
         .append('path')
-        .attr('class','boundary')
+        .attr('class','block-group')
         .attr('d', pathGenerator)
         .style('fill', function(d){
 
@@ -79,7 +79,7 @@ function draw(neighborhoods, blocks){
             //return "white";
             var lookUpIncome = medianHhIncome.get(d.properties.geoid);
             if (lookUpIncome == 0){
-                return "white"
+                return "lightgray"
             }
             else if (lookUpIncome == undefined){
                 return "blue"
@@ -90,29 +90,48 @@ function draw(neighborhoods, blocks){
         })
         .style('stroke','white');
 
+    console.log(neighborhoods);
+    //console.log(neighborhoods.features[0].properties.Name);
+
     d3.select('.map')
         .append('g')
-        .attr('class','neighborhoods')
-        .append('path')
-        .datum(neighborhoods)
-        .attr('class','neighborhoods')
-        .attr('d', pathGenerator)
-        .style('stroke-width','2px')
-        .style('fill','none')
-        .style('stroke','gray');
+        .attr('class','neighborhoods');
 
 
+    //console.log(pathGenerator.centroid(neighborhoods)[0]);
 
-        //****************still need to label each neighborhood with its name!!*****************************
-    //This should work, but need to figure out which array to pass it to get the .name. (Should be similar to lookupincome above)
-/*    d3.select('.boundary')
-        .append('text')
-        .attr("x", function(d) { return pathGenerator.centroid(d)[0];})
-        .attr("y", function(d) { return pathGenerator.centroid(d)[1];})
-        .text( function (d) { return d.properties.name})
+    //Label each neighborhood with its name
+
+    neighborhoods.features.forEach(addLabel);
+
+    function addLabel(d,index) {
+        selectNeighborhoods = d3.select('.neighborhoods');
+
+        neighborhoodGroup = selectNeighborhoods.append('g')
+            .attr('class','neighborhood');
+
+        neighborhoodGroup.append('text')
+        .attr('class','label')
+        .attr("text-anchor", "middle")
+        .attr("x", function(d) {
+            //console.log(pathGenerator.centroid(neighborhoods.features[index])[0]);
+            return pathGenerator.centroid(neighborhoods.features[index])[0];})
+        .attr("y", function(d) { return pathGenerator.centroid(neighborhoods.features[index])[1];})
+        .text( function (d) {
+            //console.log(neighborhoods.features[index].properties.Name);
+            return neighborhoods.features[index].properties.Name})
         .attr("font-family", "sans-serif")
-        .attr("font-size", "10px")
+        .attr("font-size", "14px")
         .attr("fill", "black");
-        */
+
+        //******************Switch to data method instead? appears to be appending the whole map************************
+        neighborhoodGroup.append('path')
+            .datum(neighborhoods)
+            .attr('class','boundary')
+            .attr('d', pathGenerator)
+            .style('stroke-width','2px')
+            .style('fill','none')
+            .style('stroke','gray');
+}
 
 }

@@ -17,25 +17,21 @@ var map = d3.select('.canvas')
 var bostonLngLat = [-71.088066,42.315520]; //from http://itouchmap.com/latlong.html
 
 var projection = d3.geo.mercator() //set up a mercator projection function
-
-//*************change once scaling function is set up *****************************
     .center(bostonLngLat)  //change the projection center to Boston
-    .translate([width/2-70,height/2])     //Center the projection on the screen
-    .scale(200000); //from documentation page - may need to change back to a simple multiple
+    .translate([width/2-70,height/2])//Center the projection on the screen (map asymmetrical, better to shift slightly
+    .scale(200000); //blow the map up a _lot_
 
 //set up a path generator function that uses the mercator projection function
 var pathGenerator = d3.geo.path().projection(projection);
 
-//TODO: create a color scale
 //Color scale
-//****************use d3.max to calculate a more fitting scale range**********************
-var colorScale = d3.scale.linear().domain([0,250000]).range(['white','red']); //range 0-1 is too broad; redefine for max 20% unemployment
+//value chosen based on maximum in data file (should also be able to calculate using d3.max
+var colorScale = d3.scale.linear().domain([0,250000]).range(['white','red']);
 
-//TODO: create a d3.map() to store the value of median HH income per block group
+//create a lookup table to store information about the medianHhIncome
 var medianHhIncome = d3.map();
 
-//TODO: import data, parse, and draw
-//import data
+//import data from GeoJSON and csv files. Use parseData function to load the csv (not necessary for JSONs)
 queue()
     .defer(d3.json, "data/bos_census_blk_group.geojson")
     .defer(d3.json, "data/bos_neighborhoods.geojson")
@@ -45,38 +41,35 @@ queue()
 
         //console.log(neighborhoods);
 
+        //call the draw function, pass it the loaded data
         draw(neighborhoods, blocks);
 
     });
 
 function parseData(d){
-    //console.log(d);
 
     //populate the lookup table for medianHhIncome using set.(idcolumn, datacolumn)
     //Could also link id to an object using {prop1:prop1data, prop2:prop2data}, but that doesn't appear necessary here.
     medianHhIncome.set(d.geoid, +d.B19013001);
 
-    //console.log(medianHhIncome);
     return(medianHhIncome);
 
 }
 
 function draw(neighborhoods, blocks){
 
-
+    //create a variable to hold the block groups selection
     var test = map.append('g')
         .attr('class','block-groups')
         .selectAll('.block-group')
-        .data(blocks.features)
+        .data(blocks.features)//use data/enter/append because we want to plot each path separately
         .enter()
         .append('path')
         .attr('class','block-group')
-        .attr('d', pathGenerator)
+        .attr('d', pathGenerator)  //call the pathGenerator function to draw the blocks
         .style('fill', function(d){
 
-            //console.log(d);
-
-            //return "white";
+            //set the path style depending on the value of the median income
             var lookUpIncome = medianHhIncome.get(d.properties.geoid);
             if (lookUpIncome == 0){
                 return "lightgray"
@@ -90,18 +83,26 @@ function draw(neighborhoods, blocks){
         })
         .style('stroke','white');
 
-    console.log(neighborhoods);
+    //console.log(neighborhoods);
     //console.log(neighborhoods.features[0].properties.Name);
 
+    //Create a new group, and draw the neighborhoods
     d3.select('.map')
         .append('g')
-        .attr('class','neighborhoods');
+        .attr('class','neighborhoods')
 
+        //keep neighborhood map outside of recommended DOM structure to allow it to be plotted just once, as a single path.
+        .append('path')
+        .datum(neighborhoods)  //use datum to make a single path
+        .attr('class','boundary')
+        .attr('d', pathGenerator)
+        .style('stroke-width','2px')
+        .style('fill','none')
+        .style('stroke','gray');
 
     //console.log(pathGenerator.centroid(neighborhoods)[0]);
 
     //Label each neighborhood with its name
-
     neighborhoods.features.forEach(addLabel);
 
     function addLabel(d,index) {
@@ -110,11 +111,14 @@ function draw(neighborhoods, blocks){
         neighborhoodGroup = selectNeighborhoods.append('g')
             .attr('class','neighborhood');
 
+        //append a label to each group (since the map is drawn as a single entity, it might make more sense to
+        //make a single group of labels...
         neighborhoodGroup.append('text')
         .attr('class','label')
-        .attr("text-anchor", "middle")
+        .attr("text-anchor", "middle")  //measure from the center of the text
         .attr("x", function(d) {
             //console.log(pathGenerator.centroid(neighborhoods.features[index])[0]);
+            //calculate the centroid for each neighborhood, and use this to place the labels
             return pathGenerator.centroid(neighborhoods.features[index])[0];})
         .attr("y", function(d) { return pathGenerator.centroid(neighborhoods.features[index])[1];})
         .text( function (d) {
@@ -124,14 +128,6 @@ function draw(neighborhoods, blocks){
         .attr("font-size", "14px")
         .attr("fill", "black");
 
-        //******************Switch to data method instead? appears to be appending the whole map************************
-        neighborhoodGroup.append('path')
-            .datum(neighborhoods)
-            .attr('class','boundary')
-            .attr('d', pathGenerator)
-            .style('stroke-width','2px')
-            .style('fill','none')
-            .style('stroke','gray');
 }
 
 }
